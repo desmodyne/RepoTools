@@ -1,0 +1,18 @@
+---
+# .releasetools.yaml
+#
+# ReleaseTools configuration file: https://github.com/desmodyne/ReleaseTools
+#
+# author  : stefan schablowski
+# contact : stefan.schablowski@desmodyne.com
+# created : 2019-07-03
+
+
+# project version in semver format
+# major.minor.patch: http://semver.org
+# https://en.wikipedia.org/wiki/Software_versioning
+# NOTE: this is parsed literally, do not add comments
+version:
+  major: 0
+  minor: 0
+  patch: 0
