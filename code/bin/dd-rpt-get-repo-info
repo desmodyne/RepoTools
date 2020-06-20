@@ -159,6 +159,10 @@ git_revl_args=('rev-list' '--count' 'HEAD')
 # https://git-scm.com/docs/git-rev-parse
 git_revp_args=('rev-parse' '--abbrev-ref' 'HEAD')
 
+# git rev-parse arguments for commit hash
+# https://git-scm.com/docs/git-rev-parse
+git_revp_args_02=('rev-parse' '--short' 'HEAD')
+
 # git remote arguments
 # https://git-scm.com/docs/git-remote
 git_rmte_args=('remote' 'get-url' 'origin')
@@ -284,6 +288,20 @@ then
     echo "${git_semver}"
 fi
 
+# https://stackoverflow.com/a/1968001
+echo -n 'get git repo HEAD commit hash: '
+if output="$(git "${git_base_args[@]}" "${git_revp_args_02[@]}" 2>&1)"
+then
+    echo 'OK'
+    git_commit="${output}"
+else
+    echo 'ERROR:'
+    echo "${output}"
+    # shellcheck disable=SC2154
+    echo "using ${no_commit_fallback} as fallback"
+    git_commit="${no_commit_fallback}"
+fi
+
 echo -n 'get git repo version: '
 if output="$(git "${git_base_args[@]}" "${git_desc_args[@]}" 2>&1)"
 then
@@ -301,20 +319,6 @@ then
     #           b4a3a83-DIRTY --> b4a3a83
     # 0.1.5-42-g652c397       --> 652c397
     # 0.1.5-42-g652c397-DIRTY --> 652c397
-    sed_expr='s|.*\([0-9a-f]\{7\}\).*|\1|g'
-    echo -n 'get commit from git version: '
-    # shellcheck disable=SC2154
-    if output="$("${sed}" -e "${sed_expr}" <<< "${git_version}")"
-    then
-        echo 'OK'
-        git_commit="${output}"
-    else
-        echo 'ERROR:'
-        echo "${output}"
-        # shellcheck disable=SC2154
-        echo "using ${no_commit_fallback} as fallback"
-        git_commit="${no_commit_fallback}"
-    fi
 
     if [[ "${git_version}" =~ ^[0-9]+\.[0-9]+\.[0-9]+ ]]
     then
