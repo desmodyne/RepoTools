@@ -41,7 +41,7 @@ path_to_conf_file="conf/$(basename "${BASH_SOURCE[0]}").yaml"
 
 # array with alphabetical list of tools called by this script
 # shellcheck disable=SC2034
-req_tools=('git' 'realpath')
+req_tools=('git' 'jq' 'realpath')
 
 # array with paths to append to PATH
 # shellcheck disable=SC2034
@@ -94,7 +94,7 @@ path_to_conf_file="${path_to_proj_root}/${path_to_conf_file}"
 # load script configuration
 
 # shellcheck disable=SC2034
-attrs=(dirty_string
+attrs=(dirty_string marker_end marker_start
        no_branch_fallback no_commit_fallback no_count_fallback
        no_remote_fallback no_semver_fallback no_stage_fallback
        no_status_fallback no_tag_fallback    no_version_fallback)
@@ -380,6 +380,7 @@ else
     git_version="${no_version_fallback}"
 fi
 
+# TODO: use jo for this ?
 # shellcheck disable=SC2034,SC2059
 repo_info="$(printf "${output_tmpl}" "${repo_root}"    \
                                      "${git_branch}"   \
@@ -390,9 +391,13 @@ repo_info="$(printf "${output_tmpl}" "${repo_root}"    \
                                      "${git_stage}"    \
                                      "${git_version}")"
 
-# useful for debugging:
-# echo 'repo_info:'
-# jq '.' <<< "${repo_info}"
+echo
+
+# NOTE: scripts calling this script filter the actual repo info out
+# of the output of this script using these start and stop amrkers
+echo "${marker_start}"
+jq '.' <<< "${repo_info}"
+echo "${marker_end}"
 
 
 echo
