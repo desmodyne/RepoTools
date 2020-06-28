@@ -53,14 +53,17 @@ fi
 # absolute path to this script: http://stackoverflow.com/a/9107028
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-# path from this script to project root
-path_to_proj_root='../..'
-
 # absolute path to BashLib library file
 path_to_bashlib='/usr/local/lib/dd-bash-lib.sh'
 
-# path to script configuration file, relative to project root
-path_to_conf_file="conf/$(basename "${BASH_SOURCE[0]}").yaml"
+# path to script conf folder in development, relative to project root
+path_to_conf_dev="conf"
+
+# path to script conf folder in production, relative to project root
+path_to_conf_prod="etc/dd-repo-tools"
+
+# name of script configuration file, relative to project root
+name_of_conf_file="$(basename "${BASH_SOURCE[0]}").yaml"
 
 # TODO: shellcheck reports these to be unused
 # https://github.com/koalaman/shellcheck/wiki/SC2034
@@ -105,22 +108,45 @@ fi
 if ! configure_platform              ; then exit 1; fi
 if ! extend_path req_tools ext_paths ; then exit 1; fi
 
+if output="$(get_environment here)"
+then
+    # NOTE: see also BashLib > get_environment function documentation
+    start="${dd_bashlib_marker_start}"
+    end="${dd_bashlib_marker_end}"
+    output="$(sed "/${start}/,/${end}/!d;/${end}/q" <<< "${output}")"
+    env_json="$(sed '1d;$d' <<< "${output}")"
+else
+    exit 1
+fi
+
 
 # -----------------------------------------------------------------------------
 # configure script parameters
 
-# absolute, canonical path to project root
-path_to_proj_root="$(realpath "${here}/${path_to_proj_root}")"
+environment="$(jq -r '.environment' <<< "${env_json}")"
+root_path="$(  jq -r '.root_path'   <<< "${env_json}")"
 
-# absolute, canonical path to configuration file
-path_to_conf_file="${path_to_proj_root}/${path_to_conf_file}"
+if   [ "${environment}" = 'development' ]
+then
+    # absolute, canonical path to configuration file
+    path_to_conf_file="${root_path}/${path_to_conf_dev}/${name_of_conf_file}"
+
+elif [ "${environment}" = 'production'  ]
+then
+    # absolute, canonical path to configuration file
+    path_to_conf_file="${root_path}/${path_to_conf_prod}/${name_of_conf_file}"
+
+else
+    echo 'failed to determine RepoTools environment'
+    exit 1
+fi
 
 
 # -----------------------------------------------------------------------------
 # load script configuration
 
 # shellcheck disable=SC2034
-attrs=(dirty_string marker_end marker_start
+attrs=(dirty_string
        no_branch_fallback no_commit_fallback no_count_fallback
        no_remote_fallback no_semver_fallback no_stage_fallback
        no_status_fallback no_tag_fallback    no_version_fallback)
@@ -402,9 +428,9 @@ echo
 
 # NOTE: scripts calling this script filter the actual repo info out
 # of the output of this script using these start and stop amrkers
-echo "${marker_start}"
+echo "${dd_bashlib_marker_start}"
 jq '.' <<< "${repo_info}"
-echo "${marker_end}"
+echo "${dd_bashlib_marker_end}"
 
 
 echo

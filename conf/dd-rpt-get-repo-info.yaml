@@ -11,12 +11,6 @@
 # string to indicate local, uncommitted changes, i.e. status = true
 dirty_string:          -DIRTY
 
-# string to mark the start of repo info in output
-marker_start:          repo info start
-
-# string to mark the end of repo info in output
-marker_end:            repo info end
-
 # string to fall back to if repo branch can not be determined
 no_branch_fallback:    NO BRANCH
 
