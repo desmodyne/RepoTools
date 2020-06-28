@@ -22,26 +22,55 @@ echo
 
 
 # -----------------------------------------------------------------------------
+# process command line arguments
+
+if [ ${#} -ne 1 ]
+then
+    echo "Usage: $(basename "${0}") <client repository (root) folder>"
+    exit 1
+fi
+
+repo_root="${1}"
+
+if [ ! -e "${repo_root}" ]
+then
+    echo "${repo_root}: No such file or directory"
+    exit 1
+fi
+
+if [ ! -d "${repo_root}" ]
+then
+    echo "${repo_root}: Not a directory"
+    exit 1
+fi
+
+# TODO: test here alredy if repo root is a git repo at all ?
+
+
+# -----------------------------------------------------------------------------
 # configure script parameters
 
 # absolute path to this script: http://stackoverflow.com/a/9107028
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-# path from this script to project root
-path_to_proj_root='../..'
-
 # absolute path to BashLib library file
 path_to_bashlib='/usr/local/lib/dd-bash-lib.sh'
 
-# path to script configuration file, relative to project root
-path_to_conf_file="conf/$(basename "${BASH_SOURCE[0]}").yaml"
+# path to script conf folder in development, relative to project root
+path_to_conf_dev="conf"
+
+# path to script conf folder in production, relative to project root
+path_to_conf_prod="etc/dd-repo-tools"
+
+# name of script configuration file, relative to project root
+name_of_conf_file="$(basename "${BASH_SOURCE[0]}").yaml"
 
 # TODO: shellcheck reports these to be unused
 # https://github.com/koalaman/shellcheck/wiki/SC2034
 
 # array with alphabetical list of tools called by this script
 # shellcheck disable=SC2034
-req_tools=('git' 'realpath')
+req_tools=('git' 'jq' 'realpath')
 
 # array with paths to append to PATH
 # shellcheck disable=SC2034
@@ -79,15 +108,38 @@ fi
 if ! configure_platform              ; then exit 1; fi
 if ! extend_path req_tools ext_paths ; then exit 1; fi
 
+if output="$(get_environment here)"
+then
+    # NOTE: see also BashLib > get_environment function documentation
+    start="${dd_bashlib_marker_start}"
+    end="${dd_bashlib_marker_end}"
+    output="$(sed "/${start}/,/${end}/!d;/${end}/q" <<< "${output}")"
+    env_json="$(sed '1d;$d' <<< "${output}")"
+else
+    exit 1
+fi
+
 
 # -----------------------------------------------------------------------------
 # configure script parameters
 
-# absolute, canonical path to project root
-path_to_proj_root="$(realpath "${here}/${path_to_proj_root}")"
+environment="$(jq -r '.environment' <<< "${env_json}")"
+root_path="$(  jq -r '.root_path'   <<< "${env_json}")"
 
-# absolute, canonical path to configuration file
-path_to_conf_file="${path_to_proj_root}/${path_to_conf_file}"
+if   [ "${environment}" = 'development' ]
+then
+    # absolute, canonical path to configuration file
+    path_to_conf_file="${root_path}/${path_to_conf_dev}/${name_of_conf_file}"
+
+elif [ "${environment}" = 'production'  ]
+then
+    # absolute, canonical path to configuration file
+    path_to_conf_file="${root_path}/${path_to_conf_prod}/${name_of_conf_file}"
+
+else
+    echo 'failed to determine RepoTools environment'
+    exit 1
+fi
 
 
 # -----------------------------------------------------------------------------
@@ -106,29 +158,6 @@ echo 'Load script configuration file:'
 if ! get_attrs_from_yaml_file "${path_to_conf_file}" attrs opt_attrs
 then
     exit 1
-fi
-
-
-# -----------------------------------------------------------------------------
-# process command line arguments
-
-repo_root="$1"
-
-if [ $# -ne 1 ]
-then
-    echo "Usage: $(basename "$0") <folder in repository tree>"
-    exit 1
-else
-    if [ ! -e "${repo_root}" ]
-    then
-        echo "${repo_root}: No such file or directory"
-        exit 1
-    fi
-    if [ ! -d "${repo_root}" ]
-    then
-        echo "${repo_root}: Not a directory"
-        exit 1
-    fi
 fi
 
 
@@ -158,6 +187,10 @@ git_revl_args=('rev-list' '--count' 'HEAD')
 # git rev-parse arguments
 # https://git-scm.com/docs/git-rev-parse
 git_revp_args=('rev-parse' '--abbrev-ref' 'HEAD')
+
+# git rev-parse arguments for commit hash
+# https://git-scm.com/docs/git-rev-parse
+git_revp_args_02=('rev-parse' '--short' 'HEAD')
 
 # git remote arguments
 # https://git-scm.com/docs/git-remote
@@ -284,6 +317,20 @@ then
     echo "${git_semver}"
 fi
 
+# https://stackoverflow.com/a/1968001
+echo -n 'get git repo HEAD commit hash: '
+if output="$(git "${git_base_args[@]}" "${git_revp_args_02[@]}" 2>&1)"
+then
+    echo 'OK'
+    git_commit="${output}"
+else
+    echo 'ERROR:'
+    echo "${output}"
+    # shellcheck disable=SC2154
+    echo "using ${no_commit_fallback} as fallback"
+    git_commit="${no_commit_fallback}"
+fi
+
 echo -n 'get git repo version: '
 if output="$(git "${git_base_args[@]}" "${git_desc_args[@]}" 2>&1)"
 then
@@ -301,20 +348,6 @@ then
     #           b4a3a83-DIRTY --> b4a3a83
     # 0.1.5-42-g652c397       --> 652c397
     # 0.1.5-42-g652c397-DIRTY --> 652c397
-    sed_expr='s|.*\([0-9a-f]\{7\}\).*|\1|g'
-    echo -n 'get commit from git version: '
-    # shellcheck disable=SC2154
-    if output="$("${sed}" -e "${sed_expr}" <<< "${git_version}")"
-    then
-        echo 'OK'
-        git_commit="${output}"
-    else
-        echo 'ERROR:'
-        echo "${output}"
-        # shellcheck disable=SC2154
-        echo "using ${no_commit_fallback} as fallback"
-        git_commit="${no_commit_fallback}"
-    fi
 
     if [[ "${git_version}" =~ ^[0-9]+\.[0-9]+\.[0-9]+ ]]
     then
@@ -380,6 +413,7 @@ else
     git_version="${no_version_fallback}"
 fi
 
+# TODO: use jo for this ?
 # shellcheck disable=SC2034,SC2059
 repo_info="$(printf "${output_tmpl}" "${repo_root}"    \
                                      "${git_branch}"   \
@@ -390,9 +424,13 @@ repo_info="$(printf "${output_tmpl}" "${repo_root}"    \
                                      "${git_stage}"    \
                                      "${git_version}")"
 
-# useful for debugging:
-# echo 'repo_info:'
-# jq '.' <<< "${repo_info}"
+echo
+
+# NOTE: scripts calling this script filter the actual repo info out
+# of the output of this script using these start and stop amrkers
+echo "${dd_bashlib_marker_start}"
+jq '.' <<< "${repo_info}"
+echo "${dd_bashlib_marker_end}"
 
 
 echo
