@@ -22,6 +22,32 @@ echo
 
 
 # -----------------------------------------------------------------------------
+# process command line arguments
+
+if [ ${#} -ne 1 ]
+then
+    echo "Usage: $(basename "${0}") <client repository (root) folder>"
+    exit 1
+fi
+
+repo_root="${1}"
+
+if [ ! -e "${repo_root}" ]
+then
+    echo "${repo_root}: No such file or directory"
+    exit 1
+fi
+
+if [ ! -d "${repo_root}" ]
+then
+    echo "${repo_root}: Not a directory"
+    exit 1
+fi
+
+# TODO: test here alredy if repo root is a git repo at all ?
+
+
+# -----------------------------------------------------------------------------
 # configure script parameters
 
 # absolute path to this script: http://stackoverflow.com/a/9107028
@@ -106,29 +132,6 @@ echo 'Load script configuration file:'
 if ! get_attrs_from_yaml_file "${path_to_conf_file}" attrs opt_attrs
 then
     exit 1
-fi
-
-
-# -----------------------------------------------------------------------------
-# process command line arguments
-
-repo_root="$1"
-
-if [ $# -ne 1 ]
-then
-    echo "Usage: $(basename "$0") <folder in repository tree>"
-    exit 1
-else
-    if [ ! -e "${repo_root}" ]
-    then
-        echo "${repo_root}: No such file or directory"
-        exit 1
-    fi
-    if [ ! -d "${repo_root}" ]
-    then
-        echo "${repo_root}: Not a directory"
-        exit 1
-    fi
 fi
 
 
