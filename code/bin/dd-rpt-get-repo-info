@@ -56,12 +56,6 @@ here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # absolute path to BashLib library file
 path_to_bashlib='/usr/local/lib/dd-bash-lib.sh'
 
-# path to script conf folder in development, relative to project root
-path_to_conf_dev="conf"
-
-# path to script conf folder in production, relative to project root
-path_to_conf_prod="etc/dd-repo-tools"
-
 # name of script configuration file, relative to project root
 name_of_conf_file="$(basename "${BASH_SOURCE[0]}").yaml"
 
@@ -95,6 +89,16 @@ fi
 
 
 # -----------------------------------------------------------------------------
+# configure script parameters
+
+# string to mark the line before relevant output on stdout
+marker_start="${dd_bashlib_marker_start}"
+
+# string to mark the line after relevant output on stdout
+marker_end="${dd_bashlib_marker_end}"
+
+
+# -----------------------------------------------------------------------------
 # run BashLib boilerplate functions
 
 # NOTE: ideally, these function calls would be something like e.g.
@@ -108,16 +112,21 @@ fi
 if ! configure_platform              ; then exit 1; fi
 if ! extend_path req_tools ext_paths ; then exit 1; fi
 
-if output="$(get_environment here)"
+echo -n 'Get RepoTools environment: '
+if output="$(get_environment "${here}" 2>&1)"
 then
-    # NOTE: see also BashLib > get_environment function documentation
-    start="${dd_bashlib_marker_start}"
-    end="${dd_bashlib_marker_end}"
-    output="$(sed "/${start}/,/${end}/!d;/${end}/q" <<< "${output}")"
-    env_json="$(sed '1d;$d' <<< "${output}")"
+    echo 'OK'
+    env_json="${output}"
 else
+    echo 'ERROR'
+    echo "${output}"
     exit 1
 fi
+
+# NOTE: see also BashLib > get_environment function documentation
+sedex="/${marker_start}/,/${marker_end}/!d;/${marker_end}/q"
+env_json="$(sed "${sedex}" <<< "${env_json}" 2>&1)"
+env_json="$(sed '1d;$d'    <<< "${env_json}" 2>&1)"
 
 
 # -----------------------------------------------------------------------------
@@ -128,11 +137,34 @@ root_path="$(  jq -r '.root_path'   <<< "${env_json}")"
 
 if   [ "${environment}" = 'development' ]
 then
+    # path to script conf folder in development, relative to project root
+    path_to_conf_dev="conf"
+
+    # path from this script to project root
+    path_to_proj_root='../..'
+
+    # absolute, canonical path to project root
+    path_to_proj_root="$(realpath "${here}/${path_to_proj_root}")"
+
+    # absolute path to configuration root folder
+    path_to_conf_root="${path_to_proj_root}/${path_to_conf_dev}"
+
     # absolute, canonical path to configuration file
     path_to_conf_file="${root_path}/${path_to_conf_dev}/${name_of_conf_file}"
 
 elif [ "${environment}" = 'production'  ]
 then
+    # path to script conf folder in production, relative to installation root
+    path_to_conf_prod="etc/dd-repo-tools"
+
+    # absolute path to brew package installation root
+    # TODO: on macOS, HOMEBREW_PREFIX is not set out of the box;
+    # get HOMEBREW_PREFIX e.g. from `brew config` output instead
+    path_to_inst_root="${HOMEBREW_PREFIX}"
+
+    # absolute path to configuration root folder
+    path_to_conf_root="${path_to_inst_root}/${path_to_conf_prod}"
+
     # absolute, canonical path to configuration file
     path_to_conf_file="${root_path}/${path_to_conf_prod}/${name_of_conf_file}"
 
