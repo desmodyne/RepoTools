@@ -99,9 +99,11 @@ fi
 # configure script parameters
 
 # string to mark the line before relevant output on stdout
+# shellcheck disable=SC2154
 marker_start="${dd_bashlib_marker_start}"
 
 # string to mark the line after relevant output on stdout
+# shellcheck disable=SC2154
 marker_end="${dd_bashlib_marker_end}"
 
 
