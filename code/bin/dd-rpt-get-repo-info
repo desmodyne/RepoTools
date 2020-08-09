@@ -71,7 +71,7 @@ name_of_conf_file="$(basename "${BASH_SOURCE[0]}").yaml"
 
 # array with alphabetical list of tools called by this script
 # shellcheck disable=SC2034
-req_tools=('git' 'jq' 'realpath')
+req_tools=('brew' 'git' 'jq' 'realpath')
 
 # array with paths to append to PATH
 # shellcheck disable=SC2034
@@ -164,9 +164,7 @@ then
     path_to_conf_prod="etc/dd-repo-tools"
 
     # absolute path to brew package installation root
-    # TODO: on macOS, HOMEBREW_PREFIX is not set out of the box;
-    # get HOMEBREW_PREFIX e.g. from `brew config` output instead
-    path_to_inst_root="${HOMEBREW_PREFIX}"
+    path_to_inst_root="$(brew --prefix)"
 
     # absolute path to configuration root folder
     path_to_conf_root="${path_to_inst_root}/${path_to_conf_prod}"
